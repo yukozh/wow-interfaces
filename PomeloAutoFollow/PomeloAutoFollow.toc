@@ -1,0 +1,8 @@
+## Interface: 20501
+## Title: PomeloAutoFollow
+## Author: Yuko Zheng
+## Notes: 柚子自动跟随
+## Version: 0.9.0
+## SavedVariables: settings
+PomeloAutoFollow.lua
+
