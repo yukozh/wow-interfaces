@@ -123,7 +123,7 @@ RegEvent("ADDON_LOADED", function()
 end)
 
 local clearledger = function()
-    StaticPopup_Show("RAIDLEDGER_CLEARMSG")
+    StaticPopup_Show("MIRAILEDGER_CLEARMSG")
 end
 
 
@@ -186,7 +186,7 @@ do
     end
 end
 
-SlashCmdList["RAIDLEDGER"] = function(msg, editbox)
+SlashCmdList["MIRAILEDGER"] = function(msg, editbox)
     local cmd, what = msg:match("^(%S*)%s*(%S*)%s*$")
 
     if cmd == "" then
@@ -211,5 +211,5 @@ SlashCmdList["RAIDLEDGER"] = function(msg, editbox)
     end
 
 end
-SLASH_RAIDLEDGER1 = "/GTUAN"
-SLASH_RAIDLEDGER2 = "/RAIDLEDGER"
+SLASH_MIRAILEDGER1 = "/ML"
+SLASH_MIRAILEDGER2 = "/MIRAILEDGER"

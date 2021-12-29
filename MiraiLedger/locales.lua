@@ -1458,6 +1458,9 @@ L["Top [%d] contributors"] = "贡献钱 [%d] 的老板"
 L["Value"] = "应付"
 L["Winner"] = "赢家"
 L["You can send messages to this channel when you are in an instance only"] = "你仅可以在副本中使用这个频道"
+L["Category"] = "目录"
+L["Others"] = "其他"
+L["All"] = "全部"
 
 elseif locale == 'zhTW' then
 L["# line starts with # will be ignored"] = "# 以 # 開頭的行自動被忽略"

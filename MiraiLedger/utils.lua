@@ -241,6 +241,7 @@ local function csv(items, number)
         local i = item["detail"]["item"] or ""
         local cnt = item["detail"]["count"] or 1
         local d = item["detail"]["displayname"] or ""
+        local loot = item["detail"]["category"] or ""
         local t = item["type"]
         local ct = item["costtype"]
 
@@ -267,7 +268,7 @@ local function csv(items, number)
             note = (item["cost"] or 0) .. " *" .. L["Per Member credit"]
         end
 
-        return string.join(",", n, cnt, l, c/10000, note) .. CRLF
+        return string.join(",", n, cnt, l, c/10000, note, loot) .. CRLF
     end
 
     calcavg(items, number, function(item, c)

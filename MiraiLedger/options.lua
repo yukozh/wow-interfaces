@@ -347,7 +347,7 @@ RegEvent("ADDON_LOADED", function()
 
         local popctx = {}
 
-        StaticPopupDialogs["RAIDLEDGER_DEBIT_TEMPLATE_NAME"].OnShow = function(self)
+        StaticPopupDialogs["MIRAILEDGER_DEBIT_TEMPLATE_NAME"].OnShow = function(self)
             local c = popctx.current
 
             if c and templates[c] then
@@ -356,7 +356,7 @@ RegEvent("ADDON_LOADED", function()
         end
 
 
-        StaticPopupDialogs["RAIDLEDGER_DEBIT_TEMPLATE_NAME"].OnAccept = function(self)
+        StaticPopupDialogs["MIRAILEDGER_DEBIT_TEMPLATE_NAME"].OnAccept = function(self)
             local c = popctx.current
 
             -- if c then rename
@@ -381,7 +381,7 @@ RegEvent("ADDON_LOADED", function()
             b:SetText(NEW)
             b:SetScript("OnClick", function()
                 popctx.current = nil
-                StaticPopup_Show("RAIDLEDGER_DEBIT_TEMPLATE_NAME")
+                StaticPopup_Show("MIRAILEDGER_DEBIT_TEMPLATE_NAME")
             end)
         end
 
@@ -428,7 +428,7 @@ RegEvent("ADDON_LOADED", function()
 
                 if c and templates[c] then
                     popctx.current = c
-                    StaticPopup_Show("RAIDLEDGER_DEBIT_TEMPLATE_NAME")
+                    StaticPopup_Show("MIRAILEDGER_DEBIT_TEMPLATE_NAME")
                 end
             end)
         end
@@ -525,7 +525,7 @@ end)
 
 
 
-StaticPopupDialogs["RAIDLEDGER_DEBIT_TEMPLATE_NAME"] = {
+StaticPopupDialogs["MIRAILEDGER_DEBIT_TEMPLATE_NAME"] = {
     text = L["Name of Debit template"],
     button1 = ACCEPT,
     button2 = CANCEL,

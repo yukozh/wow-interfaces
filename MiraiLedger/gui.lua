@@ -14,6 +14,8 @@ local GenExport = ADDONSELF.genexport
 local GenReport = ADDONSELF.genreport
 local SendToChatSlowly = ADDONSELF.sendchat
 local GetMoneyStringL = ADDONSELF.GetMoneyStringL
+local lootMap = ADDONSELF.loot
+local activeCategory = L["All"]
 
 local function GetRosterNumber()
     local all = {}
@@ -63,6 +65,13 @@ function GUI:Hide()
     self.mainframe:Hide()
 end
 
+function GUI:SwitchToAllCategory()
+    if activeCategory ~= L['All'] then
+        activeCategory = L['All']
+        self.UpdateLootTableFromDatabase()
+    end
+end
+
 local CRLF = ADDONSELF.CRLF
 
 function GUI:UpdateSummary()
@@ -84,24 +93,107 @@ function GUI:GetSplitNumber()
     return tonumber(self.countEdit:GetText()) or 0
 end
 
+-- Yuko: for debug
+function dump(o)
+    if type(o) == 'table' then
+        local s = '{ '
+        for k,v in pairs(o) do
+            if type(k) ~= 'number' then 
+                k = '"'..k..'"' 
+            end
+            s = s .. '['..k..'] = ' .. dump(v) .. ','
+        end
+        return s .. '} '
+    else
+       return tostring(o)
+    end
+end
+
 function GUI:UpdateLootTableFromDatabase()
 
     local data = {}
+    local categories = {}
+    local hash = {}
+
+    table.insert(categories, #categories + 1, {
+        ["cols"] = {
+            {
+                ["value"] = L["All"]
+            },
+        },
+    });
 
     for id, item in pairs(Database:GetCurrentLedger()["items"]) do
 
-        if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
-            table.insert(data, 1, {
+        -- Update category
+        if item["detail"] and (not item["detail"]["category"]) then
+            if item["detail"]["displayname"] then
+                item["detail"]["category"] = lootMap[item["detail"]["displayname"]]
+            end
+            
+            if item["detail"]["item"] then
+                local name = GetItemInfo(item["detail"]["item"])
+                item["detail"]["category"] = lootMap[name]
+            end
+        end
+
+        if activeCategory == L["All"] then
+            if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                table.insert(data, 1, {
+                    ["cols"] = {
+                        {
+                            ["value"] = id
+                        }, -- id
+                    },
+                })
+            end
+        elseif activeCategory == L["Others"] then
+            if not (self.hidelockedCheck:GetChecked() and item["lock"]) and (not item["detail"] or not item["detail"]["category"]) then
+                table.insert(data, 1, {
+                    ["cols"] = {
+                        {
+                            ["value"] = id
+                        }, -- id
+                    },
+                })
+            end
+        elseif item["detail"] and item["detail"]["category"] == activeCategory then
+            if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                table.insert(data, 1, {
+                    ["cols"] = {
+                        {
+                            ["value"] = id
+                        }, -- id
+                    },
+                })
+            end
+        end
+
+        if item["detail"] and item["detail"]["category"] then 
+            if not hash[item["detail"]["category"]] then
+                table.insert(categories, #categories + 1, {
+                    ["cols"] = {
+                        {
+                            ["value"] = item["detail"]["category"]
+                        },
+                    },
+                });
+                hash[item["detail"]["category"]] = true
+            end
+        elseif not hash[L["Others"]] then
+            table.insert(categories, #categories + 1, {
                 ["cols"] = {
                     {
-                        ["value"] = id
-                    }, -- id
+                        ["value"] = L["Others"]
+                    },
                 },
-            })
+            });
+            hash[L["Others"]] = true
         end
     end
 
     self.lootLogFrame:SetData(data)
+    self.categoryFrame:SetData(categories)
     self:UpdateSummary()
 end
 
@@ -175,7 +267,7 @@ function GUI:Init()
 
 
     local f = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    f:SetWidth(690)
+    f:SetWidth(890)
     f:SetHeight(550)
     f:SetBackdrop({
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -209,7 +301,7 @@ function GUI:Init()
     do
         local t = f:CreateTexture(nil, "ARTWORK")
         t:SetTexture("Interface/DialogFrame/UI-DialogBox-Header")
-        t:SetWidth(256)
+        t:SetWidth(330)
         t:SetHeight(64)
         t:SetPoint("TOP", f, 0, 12)
         f.texture = t
@@ -1038,7 +1130,7 @@ function GUI:Init()
         b:SetPoint("BOTTOMLEFT", 195, 15)
         b:SetText(L["Clear"])
         b:SetScript("OnClick", function()
-            StaticPopup_Show("RAIDLEDGER_CLEARMSG")
+            StaticPopup_Show("MIRAILEDGER_CLEARMSG")
         end)
     end
 
@@ -1050,6 +1142,11 @@ function GUI:Init()
         b:SetPoint("BOTTOMLEFT", 40, 95)
         b:SetText("+" .. L["Credit"])
         b:SetScript("OnClick", function()
+            if activeCategory ~= L["All"] then
+                activeCategory = L["All"]
+                GUI:UpdateLootTableFromDatabase()
+            end
+
             Database:AddCredit("")
             ScrollFrame_OnVerticalScroll(self.lootLogFrame.scrollframe, 0) -- move to top
         end)
@@ -1078,6 +1175,10 @@ function GUI:Init()
         b:SetPoint("BOTTOMLEFT", 100, 95)
         b:SetText("+" .. L["Debit"])
         b:SetScript("OnClick", function()
+            if activeCategory ~= L["All"] then
+                activeCategory = L["All"]
+                GUI:UpdateLootTableFromDatabase()
+            end
 
             if IsControlKeyDown() then
                 applytemplate()
@@ -1472,15 +1573,18 @@ function GUI:Init()
         end)
 
         local entryUpdate = CreateCellUpdate(function(cellFrame, entry)
-
             if not (cellFrame.textBox) then
                 cellFrame.textBox = CreateFrame("EditBox", nil, cellFrame, "InputBoxTemplate,AutoCompleteEditBoxTemplate")
+                cellFrame.textBox.entry = entry;
                 cellFrame.textBox:SetPoint("CENTER", cellFrame, "CENTER", -20, 0)
                 cellFrame.textBox:SetWidth(120)
                 cellFrame.textBox:SetHeight(30)
                 cellFrame.textBox:SetAutoFocus(false)
                 cellFrame.textBox:SetScript("OnEscapePressed", cellFrame.textBox.ClearFocus)
                 cellFrame.textBox:SetScript("OnEnterPressed", cellFrame.textBox.ClearFocus)
+                cellFrame.textBox:SetScript("OnEditFocusLost", function(textBox) 
+                    self:UpdateLootTableFromDatabase()
+                end)
                 popOnFocus(cellFrame.textBox)
 
                 if entry["lock"] then
@@ -1893,13 +1997,13 @@ function GUI:Init()
                 end
 
                 if button == "RightButton" then
-                    StaticPopupDialogs["RAIDLEDGER_DELETE_ITEM"].text = L["Remove this record?"]
+                    StaticPopupDialogs["MIRAILEDGER_DELETE_ITEM"].text = L["Remove this record?"]
 
                     if IsShiftKeyDown() then
-                        StaticPopupDialogs["RAIDLEDGER_DELETE_ITEM"].text = L["Remove ALL SAME record?"]
+                        StaticPopupDialogs["MIRAILEDGER_DELETE_ITEM"].text = L["Remove ALL SAME record?"]
 
-                        StaticPopupDialogs["RAIDLEDGER_DELETE_ITEM"].OnAccept = function()
-                            StaticPopup_Hide("RAIDLEDGER_DELETE_ITEM")
+                        StaticPopupDialogs["MIRAILEDGER_DELETE_ITEM"].OnAccept = function()
+                            StaticPopup_Hide("MIRAILEDGER_DELETE_ITEM")
                             -- Database:RemoveEntry(idx)
 
                             local detail = entry["detail"]
@@ -1910,13 +2014,13 @@ function GUI:Init()
 
                         end
                     else
-                        StaticPopupDialogs["RAIDLEDGER_DELETE_ITEM"].OnAccept = function()
-                            StaticPopup_Hide("RAIDLEDGER_DELETE_ITEM")
+                        StaticPopupDialogs["MIRAILEDGER_DELETE_ITEM"].OnAccept = function()
+                            StaticPopup_Hide("MIRAILEDGER_DELETE_ITEM")
                             Database:RemoveEntry(idx)
                         end
                     end
 
-                    StaticPopup_Show("RAIDLEDGER_DELETE_ITEM")
+                    StaticPopup_Show("MIRAILEDGER_DELETE_ITEM")
                 else
                     ChatEdit_InsertLink(entry["detail"]["item"])
                 end
@@ -1932,6 +2036,33 @@ function GUI:Init()
                 SendChatMessage(ADDONSELF.GenExportLine(item, item["costcache"], true), f.reportopt.channel)
 
             end,
+        })
+
+        local categoryUpdate = function(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
+            local entry, idx = GetEntryFromUI(rowFrame, cellFrame, data, cols, row, realrow, column, table)
+            cellFrame.text:SetText(idx);
+            if activeCategory ~= idx then 
+                cellFrame.text:SetTextColor(1,1,1,1)
+            else
+                cellFrame.text:SetTextColor(1,1,0,1)
+            end
+        end
+
+        self.categoryFrame = ScrollingTable:CreateST({
+            {
+                ["name"] = L["Category"],
+                ["width"] = 140,
+                ["DoCellUpdate"] = categoryUpdate
+            }
+        }, 12, 30, nil, f)
+        self.categoryFrame.head:SetHeight(15)
+        self.categoryFrame.frame:SetPoint("TOPLEFT", f, "TOPLEFT", 680, -50)
+        self.categoryFrame:RegisterEvents({
+            ["OnClick"] = function (rowFrame, cellFrame, data, cols, row, realrow, column, sttable, button, ...)
+                local value = cellFrame.text:GetText()
+                activeCategory = value
+                GUI:UpdateLootTableFromDatabase()
+            end
         })
     end
 
@@ -2258,6 +2389,7 @@ function GUI:Init()
     -- export btn
     do
         local lootLogFrame = self.lootLogFrame
+        local categoryFrame = self.categoryFrame
         local exportEditbox = self.exportEditbox
         local countEdit = self.countEdit
         local hidelockedCheck = self.hidelockedCheck
@@ -2435,7 +2567,7 @@ RegEvent("ADDON_LOADED", function()
     end
 end)
 
-StaticPopupDialogs["RAIDLEDGER_CLEARMSG"] = {
+StaticPopupDialogs["MIRAILEDGER_CLEARMSG"] = {
     text = L["Remove all records?"],
     button1 = ACCEPT,
     button2 = CANCEL,
@@ -2448,7 +2580,7 @@ StaticPopupDialogs["RAIDLEDGER_CLEARMSG"] = {
     end,
 }
 
-StaticPopupDialogs["RAIDLEDGER_DELETE_ITEM"] = {
+StaticPopupDialogs["MIRAILEDGER_DELETE_ITEM"] = {
     text = L["Remove this record?"],
     button1 = ACCEPT,
     button2 = CANCEL,

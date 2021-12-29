@@ -2,6 +2,7 @@ local _, ADDONSELF = ...
 
 
 local RegEvent = ADDONSELF.regevent
+local lootMap = ADDONSELF.loot
 
 RegEvent("ADDON_LOADED", function()
     if not MiraiLedgerDatabase then
@@ -110,6 +111,22 @@ local COST_TYPE_MUL_AVG = "MUL_AVG"
 
 function db:AddEntry(type, detail, beneficiary, cost, costtype, paid)
     local ledger = self:GetCurrentLedger()
+
+    -- Handle loot category
+    local displayName = detail["displayname"]
+    local item = detail.item
+    if displayName then
+        local category = lootMap[displayName]
+        if category then
+            detail["category"] = category
+        end
+    elseif item then
+        local name = GetItemInfo(item)
+        local category = lootMap[name]
+        if category then
+            detail["category"] = category
+        end
+    end
 
     table.insert(ledger["items"], {
         -- id = #ledger["items"] + 1,
