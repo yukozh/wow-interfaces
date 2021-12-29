@@ -1,0 +1,26 @@
+## Interface: 20502
+## Title: Mirai |cFF22B14C[金团助手]|r
+## Notes: https://mwow.org
+## SavedVariablesPerCharacter: MiraiLedgerDatabase
+## Author: Yuko Zheng (https://github.com/yukozh)
+## Version: v0.9.1
+
+lib\LibStub\LibStub.lua
+lib\CallbackHandler-1.0\CallbackHandler-1.0.lua
+lib\LibDataBroker-1.1\LibDataBroker-1.1.lua
+
+lib\LibDBIcon-1.0\LibDBIcon-1.0.lua
+
+lib\lib-st\Core.lua
+lib\LibDeformat-3.0\LibDeformat-3.0.lua
+
+locales.lua
+utils.lua
+event.lua
+
+db.lua
+options.lua
+gui.lua
+
+trade.lua
+cli.lua

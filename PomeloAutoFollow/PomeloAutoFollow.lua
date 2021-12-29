@@ -207,7 +207,7 @@ function CreatPanel()
     local colorCheckBox3 = CreateFrame("CheckButton","colorCheckBox3", configurationPanel, "ChatConfigCheckButtonTemplate")
     colorCheckBox3:SetPoint("TOPLEFT",300, -450)
     getglobal(colorCheckBox3:GetName().."Text"):SetText("蓝色")
-    colorCheckBox3:RegisterForClicks("AnyUp",false)
+    colorCheckBox3:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     colorCheckBox1:SetScript("OnClick", function(self)
         colorCheckBox1:SetChecked(true)
