@@ -1461,6 +1461,13 @@ L["You can send messages to this channel when you are in an instance only"] = "�
 L["Category"] = "目录"
 L["Others"] = "其他"
 L["All"] = "全部"
+L["Group by boss"] = "按BOSS分组"
+L["Group by consumer"] = "按消费者分组"
+L["Allow Debt"] = "允许欠款"
+L["Group Rev."] = "分组收入"
+L["Group Exp."] = "分组支出"
+L["Group Net"] = "分组利润"
+L["Group Debt"] = "分组欠款"
 
 elseif locale == 'zhTW' then
 L["# line starts with # will be ignored"] = "# 以 # 開頭的行自動被忽略"

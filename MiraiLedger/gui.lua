@@ -74,19 +74,56 @@ end
 
 local CRLF = ADDONSELF.CRLF
 
+function GUI:UpdateGroupedSummary()
+    local category = activeCategory
+    if category == L["Others"] then
+        category = nil
+    end
+    local profit, avg, revenue, expense, paid = calcavg(Database:GetCurrentLedger()["items"], self:GetSplitNumber(), nil, nil, {
+        rounddown = GUI.rouddownCheck:GetChecked(),
+    }, Database:GetConfigOrDefault("groupby", "boss"), category)
+
+    local debt = revenue - paid
+
+    if activeCategory == L["All"] then
+        self.groupedLabel:SetText("")
+    elseif Database:GetConfigOrDefault("partialPay", true) then
+        self.groupedLabel:SetText(L["Group Rev."] .. " " .. GetMoneyString(revenue) .. CRLF
+                            .. L["Group Exp."] .. " " .. GetMoneyString(expense) .. CRLF
+                            .. L["Group Net"] .. " " .. GetMoneyString(profit) .. CRLF
+                            .. L["Group Debt"] .. " " .. GetMoneyString(debt) .. CRLF .. " "
+                            )
+    else
+        self.groupedLabel:SetText(L["Group Rev."] .. " " .. GetMoneyString(revenue) .. CRLF
+                            .. L["Group Exp."] .. " " .. GetMoneyString(expense) .. CRLF
+                            .. L["Group Net"] .. " " .. GetMoneyString(profit) .. CRLF .. " " .. CRLF .. " "
+                            )
+    end
+end
+
 function GUI:UpdateSummary()
+    self:UpdateGroupedSummary()
+
     local profit, avg, revenue, expense, paid = calcavg(Database:GetCurrentLedger()["items"], self:GetSplitNumber(), nil, nil, {
         rounddown = GUI.rouddownCheck:GetChecked(),
     })
 
     local debt = revenue - paid
 
-    self.summaryLabel:SetText(L["Revenue"] .. " " .. GetMoneyString(revenue) .. CRLF
-                           .. L["Expense"] .. " " .. GetMoneyString(expense) .. CRLF
-                           .. L["Net Profit"] .. " " .. GetMoneyString(profit) .. CRLF
-                           .. L["Per Member"] .. " " .. GetMoneyString(avg) .. CRLF
-                           .. L["Debt"] .. " " .. GetMoneyString(debt)
-                        )
+    if Database:GetConfigOrDefault("partialPay", true) then
+        self.summaryLabel:SetText(L["Revenue"] .. " " .. GetMoneyString(revenue) .. CRLF
+                            .. L["Expense"] .. " " .. GetMoneyString(expense) .. CRLF
+                            .. L["Net Profit"] .. " " .. GetMoneyString(profit) .. CRLF
+                            .. L["Debt"] .. " " .. GetMoneyString(debt) .. CRLF
+                            .. L["Per Member"] .. " " .. GetMoneyString(avg)
+                            )
+    else
+        self.summaryLabel:SetText(L["Revenue"] .. " " .. GetMoneyString(revenue) .. CRLF
+                            .. L["Expense"] .. " " .. GetMoneyString(expense) .. CRLF
+                            .. L["Net Profit"] .. " " .. GetMoneyString(profit) .. CRLF
+                            .. L["Per Member"] .. " " .. GetMoneyString(avg) .. CRLF .. " "
+                            )
+    end
 end
 
 function GUI:GetSplitNumber()
@@ -109,91 +146,192 @@ function dump(o)
     end
 end
 
-function GUI:UpdateLootTableFromDatabase()
-
-    local data = {}
-    local categories = {}
+function GUI:UpdateCategory()
     local hash = {}
+    local categories = {}
 
     table.insert(categories, #categories + 1, {
         ["cols"] = {
             {
-                ["value"] = L["All"]
+                ["value"] = {
+                    ["name"] = L["All"]
+                }
             },
         },
     });
 
+    
     for id, item in pairs(Database:GetCurrentLedger()["items"]) do
-
         -- Update category
-        if item["detail"] and (not item["detail"]["category"]) then
-            if item["detail"]["displayname"] then
-                item["detail"]["category"] = lootMap[item["detail"]["displayname"]]
+        if Database:GetConfigOrDefault("groupby", "boss") == "boss" then
+            if item["detail"] and (not item["detail"]["category"]) then
+                if item["detail"]["displayname"] then
+                    item["detail"]["category"] = lootMap[item["detail"]["displayname"]]
+                end
+                
+                if item["detail"]["item"] then
+                    local name = GetItemInfo(item["detail"]["item"])
+                    item["detail"]["category"] = lootMap[name]
+                end
             end
-            
-            if item["detail"]["item"] then
-                local name = GetItemInfo(item["detail"]["item"])
-                item["detail"]["category"] = lootMap[name]
-            end
-        end
 
-        if activeCategory == L["All"] then
-            if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
-                table.insert(data, 1, {
-                    ["cols"] = {
-                        {
-                            ["value"] = id
-                        }, -- id
-                    },
-                })
-            end
-        elseif activeCategory == L["Others"] then
-            if not (self.hidelockedCheck:GetChecked() and item["lock"]) and (not item["detail"] or not item["detail"]["category"]) then
-                table.insert(data, 1, {
-                    ["cols"] = {
-                        {
-                            ["value"] = id
-                        }, -- id
-                    },
-                })
-            end
-        elseif item["detail"] and item["detail"]["category"] == activeCategory then
-            if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
-                table.insert(data, 1, {
-                    ["cols"] = {
-                        {
-                            ["value"] = id
-                        }, -- id
-                    },
-                })
-            end
-        end
-
-        if item["detail"] and item["detail"]["category"] then 
-            if not hash[item["detail"]["category"]] then
+            if item["detail"] and item["detail"]["category"] and not hash[item["detail"]["category"]] then
                 table.insert(categories, #categories + 1, {
                     ["cols"] = {
                         {
-                            ["value"] = item["detail"]["category"]
+                            ["value"] = {
+                                ["name"] = item["detail"]["category"]
+                            }
                         },
                     },
                 });
-                hash[item["detail"]["category"]] = true
             end
-        elseif not hash[L["Others"]] then
-            table.insert(categories, #categories + 1, {
-                ["cols"] = {
-                    {
-                        ["value"] = L["Others"]
-                    },
-                },
-            });
-            hash[L["Others"]] = true
+        else
+            if item["beneficiary"] and string.len(item["beneficiary"]) > 0 then 
+                if not hash[item["beneficiary"]] then
+                    table.insert(categories, #categories + 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = {
+                                    ["name"] = item["beneficiary"],
+                                    ["player"] = item["player"]
+                                }
+                            },
+                        },
+                    });
+                    hash[item["beneficiary"]] = true
+                end
+            end
+        end
+    end
+
+    table.insert(categories, #categories + 1, {
+        ["cols"] = {
+            {
+                ["value"] = {
+                    ["name"] = L["Others"]
+                }
+            },
+        },
+    });
+
+    self.categoryFrame:SetData(categories)
+    return categories, hash
+end
+
+function GUI:UpdatePlayerInfoForEntry(item)
+    if item then
+        local playerName = item["beneficiary"]
+        local _, playerClassEn, playerClassId = UnitClass(playerName)
+        if playerClassId then
+            item["player"] = {
+                ["className"] = playerClassEn,
+                ["classId"] = playerClassId,
+                ["name"] = item["beneficiary"]
+            }
+        end
+    end
+end
+
+function GUI:UpdatePlayerInfo()
+    for id, item in pairs(Database:GetCurrentLedger()["items"]) do
+        self:UpdatePlayerInfoForEntry(item)
+    end
+end
+
+function GUI:UpdateLootTableFromDatabase()
+
+    local data = {}
+
+    self:UpdatePlayerInfo()
+    local categories, hash = self:UpdateCategory()
+
+    for id, item in pairs(Database:GetCurrentLedger()["items"]) do
+        -- Update player info
+        self.UpdatePlayerInfoForEntry(item)
+
+        -- Select rows
+        if Database:GetConfigOrDefault("groupby", "boss") == "boss" then
+            if activeCategory == L["All"] then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            elseif activeCategory == L["Others"] then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) and (not item["detail"] or not item["detail"]["category"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            elseif item["detail"] and item["detail"]["category"] == activeCategory then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            end
+    
+            if item["detail"] and item["detail"]["category"] then 
+                if not hash[item["detail"]["category"]] then
+                    table.insert(categories, #categories + 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = item["detail"]["category"]
+                            },
+                        },
+                    });
+                    hash[item["detail"]["category"]] = true
+                end
+            end
+        else
+            if activeCategory == L["All"] then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            elseif item["beneficiary"] == activeCategory then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            elseif (not item["beneficiary"] or string.len(item["beneficiary"]) == 0) and activeCategory == L["Others"] then
+                if not (self.hidelockedCheck:GetChecked() and item["lock"]) then
+                    table.insert(data, 1, {
+                        ["cols"] = {
+                            {
+                                ["value"] = id
+                            }, -- id
+                        },
+                    })
+                end
+            end
         end
     end
 
     self.lootLogFrame:SetData(data)
-    self.categoryFrame:SetData(categories)
     self:UpdateSummary()
 end
 
@@ -1073,13 +1211,86 @@ function GUI:Init()
     end
     --
 
-    -- sum
+    do
+        local b = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
+        b:SetPoint("BOTTOMLEFT", f, 340, 60)
+        b.text:SetText(L["Allow Debt"])
+        b:SetScript("OnClick", function() 
+            Database:SetConfig("partialPay", b:GetChecked())
+            GUI:UpdateLootTableFromDatabase() 
+        end)
+        b:SetChecked(Database:GetConfigOrDefault("partialPay", true))
+
+        self.partialPayCheck = b
+    end
+    --
+    
+    do
+        local b = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
+        b:SetPoint("BOTTOMLEFT", f, 455, 90)
+        b.text:SetText(L["Group by boss"])
+        b:SetScript("OnClick", function() 
+            if b:GetChecked() then
+                Database:SetConfig("groupby", "boss")
+                GUI.groupByConsumerCheck:SetChecked(false)
+            else 
+                Database:SetConfig("groupby", "consumer")
+                GUI.groupByConsumerCheck:SetChecked(true)
+            end
+            activeCategory = L["All"]
+            GUI:UpdateLootTableFromDatabase() 
+        end)
+
+        b:SetChecked(Database:GetConfigOrDefault("groupby", "boss") == "boss")
+
+        self.groupByBossCheck = b
+    end
+    --
+
+    do
+        local b = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
+        b:SetPoint("BOTTOMLEFT", f, 455, 60)
+        b.text:SetText(L["Group by consumer"])
+        b:SetScript("OnClick", function() 
+            if b:GetChecked() then
+                Database:SetConfig("groupby", "consumer")
+                GUI.groupByBossCheck:SetChecked(false)
+            else 
+                Database:SetConfig("groupby", "boss")
+                GUI.groupByBossCheck:SetChecked(true)
+            end
+            activeCategory = L["All"]
+            GUI:UpdateLootTableFromDatabase() 
+        end)
+
+        b:SetChecked(Database:GetConfigOrDefault("groupby", "boss") == "consumer")
+
+        self.groupByConsumerCheck = b
+    end
+    --
+
+    -- summary: total
     do
         local t = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        t:SetPoint("BOTTOMRIGHT", f, -40, 65)
+        t:SetPoint("BOTTOMRIGHT", f, -40, 55)
         t:SetJustifyH("RIGHT")
 
         self.summaryLabel = t
+    end
+
+    -- summary: grouped
+    do
+        local t = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        t:SetPoint("BOTTOMRIGHT", f, -170, 55)
+        t:SetJustifyH("RIGHT")
+
+        self.groupedLabel = t
     end
 
     -- export editbox
@@ -1666,6 +1877,15 @@ function GUI:Init()
                 if entry["lock"] then
                     cellFrame.textBox:Disable()
                 end                
+
+                GUI:UpdatePlayerInfoForEntry(entry)
+
+                if entry["player"] then
+                    local color = RAID_CLASS_COLORS[entry["player"]["className"]]
+                    cellFrame.textBox:SetTextColor(color.r, color.g, color.b, 1)
+                else
+                    cellFrame.textBox:SetTextColor(0.7, 0.7, 0.7, 1)
+                end
             end
 
             if not cellFrame.bidButton then
@@ -1681,6 +1901,13 @@ function GUI:Init()
 
             cellFrame.textBox.customTextChangedCallback = function(t)
                 entry["beneficiary"] = t
+                GUI:UpdatePlayerInfoForEntry(entry)
+                if entry["player"] then
+                    local color = RAID_CLASS_COLORS[entry["player"]["className"]]
+                    cellFrame.textBox:SetTextColor(color.r, color.g, color.b, 1)
+                else
+                    cellFrame.textBox:SetTextColor(0.7, 0.7, 0.7, 1)
+                end
             end
 
             cellFrame.textBox.customAutoCompleteFunction = function(editBox, newText, info)
@@ -1756,6 +1983,14 @@ function GUI:Init()
         
         local paidUpdate = CreateCellUpdate(function(cellFrame, entry)
             local tooltip = self.commtooltip
+
+            if not entry["paid"] then
+                entry["paid"] = 0
+            end
+            if not entry["paidcache"] then
+                entry["paidcache"] = 0
+            end
+
             if not (cellFrame.textBox) then
                 cellFrame.textBox = CreateFrame("EditBox", nil, cellFrame, "InputBoxTemplate")
                 cellFrame.textBox:SetPoint("CENTER", cellFrame, "CENTER")
@@ -1773,6 +2008,8 @@ function GUI:Init()
                 end
             end
 
+            cellFrame.textBox:SetText(tostring(entry["paid"] or 0))
+
             if (entry["type"] == "DEBIT") then
                 cellFrame.textBox:Hide()
                 cellFrame.text:Hide()
@@ -1781,7 +2018,13 @@ function GUI:Init()
                 cellFrame.text:Show()
             end
 
-            cellFrame.textBox:SetText(tostring(entry["paid"] or 0))
+            if Database:GetConfigOrDefault("partialPay", true) then
+                cellFrame.textBox:Show()
+                cellFrame.text:Show()
+            else
+                cellFrame.textBox:Hide()
+                cellFrame.text:Hide()
+            end
 
             local type = entry["costtype"] or "GOLD"
 
@@ -2033,16 +2276,21 @@ function GUI:Init()
                     return
                 end
 
-                SendChatMessage(ADDONSELF.GenExportLine(item, item["costcache"], true), f.reportopt.channel)
+                SendChatMessage(ADDONSELF.GenExportLine(item, item["costcache"], true), f.reportopt.channel, Database:GetConfigOrDefault("partialPay", true))
 
             end,
         })
 
         local categoryUpdate = function(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
             local entry, idx = GetEntryFromUI(rowFrame, cellFrame, data, cols, row, realrow, column, table)
-            cellFrame.text:SetText(idx);
-            if activeCategory ~= idx then 
-                cellFrame.text:SetTextColor(1,1,1,1)
+            
+            cellFrame.text:SetText(idx["name"]);
+            if activeCategory ~= idx["name"] then 
+                cellFrame.text:SetTextColor(0.8,0.8,0.8,1)
+                if idx["player"] then 
+                    local color = RAID_CLASS_COLORS[idx["player"]["className"]]
+                    cellFrame.text:SetTextColor(color.r, color.g, color.b, 1)
+                end
             else
                 cellFrame.text:SetTextColor(1,1,0,1)
             end
@@ -2154,7 +2402,7 @@ function GUI:Init()
                         short = true,
                         filterzero = optctx.filterzero,
                         rounddown = GUI.rouddownCheck:GetChecked(),
-                    })
+                    }, Database:GetConfigOrDefault("partialPay", true))
                 end, 
                 notCheckable = true,
             },
@@ -2284,7 +2532,7 @@ function GUI:Init()
                 func = function()
                     GenReport(Database:GetCurrentLedger()["items"], GUI:GetSplitNumber(), optctx.channel, {
                         expenseonly = true,
-                    })
+                    }, Database:GetConfigOrDefault("partialPay", true))
                 end, 
                 notCheckable = true,
             },
@@ -2364,7 +2612,7 @@ function GUI:Init()
                     short = IsControlKeyDown(),
                     filterzero = optctx.filterzero,
                     rounddown = GUI.rouddownCheck:GetChecked(),
-                })
+                }, Database:GetConfigOrDefault("partialPay", true))
             end
         end)
 
@@ -2415,7 +2663,7 @@ function GUI:Init()
                 b:SetText(L["Close text export"])
             end
 
-            exportEditbox:SetText(GenExport(Database:GetCurrentLedger()["items"], GUI:GetSplitNumber(), opt))
+            exportEditbox:SetText(GenExport(Database:GetCurrentLedger()["items"], GUI:GetSplitNumber(), opt, Database:GetConfigOrDefault("partialPay", true)))
         end
 
         b:SetScript("OnClick", function()

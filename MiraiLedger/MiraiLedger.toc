@@ -1,9 +1,9 @@
-## Interface: 20502
+## Interface: 20503
 ## Title: Mirai |cFF22B14C[金团助手]|r
 ## Notes: https://mwow.org
 ## SavedVariablesPerCharacter: MiraiLedgerDatabase
 ## Author: Yuko Zheng (https://github.com/yukozh)
-## Version: v0.9.2
+## Version: v0.9.3
 
 lib\LibStub\LibStub.lua
 lib\CallbackHandler-1.0\CallbackHandler-1.0.lua

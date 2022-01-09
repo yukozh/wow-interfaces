@@ -66,7 +66,7 @@ local CRLF = "\r\n"
 
 ADDONSELF.CRLF = CRLF
 
-local calcavg = function(items, n, oncredit, ondebit, conf)
+local calcavg = function(items, n, oncredit, ondebit, conf, groupMode, category)
     oncredit = oncredit or noop
     ondebit  = ondebit or noop
     conf = conf or {}
@@ -82,32 +82,40 @@ local calcavg = function(items, n, oncredit, ondebit, conf)
     local mulAvgItems = {}
 
     for _, item in pairs(items or {}) do
-        local c = item["cost"] or 0
-        local t = item["type"]
-        local ct = item["costtype"] or "GOLD"
-        local paid = item["paid"] or 0
+        if (not groupMode) 
+            or (category == L["All"])
+            or (groupMode == 'boss' and item["detail"] and item["detail"]["category"] == category)
+            or (groupMode == 'consumer' and item["beneficiary"] == category) then
+            local c = item["cost"] or 0
+            local t = item["type"]
+            local ct = item["costtype"] or "GOLD"
+            local paid = 0
+            if item["paid"] and type(item["paid"]) == 'number' then
+                paid = item["paid"]
+            end
 
-        if t == "CREDIT" then
-            c = math.floor( c * 10000 )
-            item["costcache"] = c
-            revenue = revenue + c
-            paid = math.floor(paid * 10000)
-            item["paidcache"] = paid
-            totalpaid = totalpaid + paid
-            oncredit(item, c)
-        elseif t == "DEBIT" then
-            if ct == "GOLD" then
+            if t == "CREDIT" then
                 c = math.floor( c * 10000 )
-                expense = expense + c
                 item["costcache"] = c
-                ondebit(item, c)
-            elseif ct == "PROFIT_PERCENT" then
-                table.insert( profitPercentItems, item)
-            elseif ct == "REVENUE_PERCENT" then
-                table.insert( revenuePercentItems, item)
-            elseif ct == "MUL_AVG" then
-                saltN = saltN + c
-                table.insert(mulAvgItems, item)
+                revenue = revenue + c
+                paid = math.floor(paid * 10000)
+                item["paidcache"] = paid
+                totalpaid = totalpaid + paid
+                oncredit(item, c)
+            elseif t == "DEBIT" then
+                if ct == "GOLD" then
+                    c = math.floor( c * 10000 )
+                    expense = expense + c
+                    item["costcache"] = c
+                    ondebit(item, c)
+                elseif ct == "PROFIT_PERCENT" then
+                    table.insert( profitPercentItems, item)
+                elseif ct == "REVENUE_PERCENT" then
+                    table.insert( revenuePercentItems, item)
+                elseif ct == "MUL_AVG" then
+                    saltN = saltN + c
+                    table.insert(mulAvgItems, item)
+                end
             end
         end
     end
@@ -173,7 +181,7 @@ end
 ADDONSELF.calcavg = calcavg
 
 
-local function GenExportLine(item, c, uselink)
+local function GenExportLine(item, c, uselink, allowDebt)
     local l = item["beneficiary"] or L["[Unknown]"]
     local i = item["detail"]["item"] or ""
     local cnt = item["detail"]["count"] or 1
@@ -244,6 +252,10 @@ local function csv(items, number)
         local loot = item["detail"]["category"] or ""
         local t = item["type"]
         local ct = item["costtype"]
+        local pc = ""
+        if item["player"] then
+            pc = item["player"]["className"]
+        end
 
         local n = GetItemInfo(i)
         n = n or d
@@ -268,7 +280,7 @@ local function csv(items, number)
             note = (item["cost"] or 0) .. " *" .. L["Per Member credit"]
         end
 
-        return string.join(",", n, cnt, l, c/10000, note, loot) .. CRLF
+        return string.join(",", n, cnt, l, c/10000, note, loot, pc) .. CRLF
     end
 
     calcavg(items, number, function(item, c)
@@ -282,8 +294,7 @@ local function csv(items, number)
     return s
 end
 
-ADDONSELF.genexport = function(items, n, conf)
-
+ADDONSELF.genexport = function(items, n, conf, allowDebt)
     -- TODO code struct
     if conf.format == "csv" then
         return csv(items, n)
@@ -312,14 +323,16 @@ ADDONSELF.genexport = function(items, n, conf)
     s = s .. L["Revenue"] .. ":" .. revenue .. CRLF
     s = s .. L["Expense"] .. ":" .. expense .. CRLF
     s = s .. L["Net Profit"] .. ":" .. profit .. CRLF
-    s = s .. L["Debt"] .. ":" .. debt .. CRLF
+    if allowDebt then
+        s = s .. L["Debt"] .. ":" .. debt .. CRLF
+    end
     s = s .. L["Split into"] .. ":" .. n .. CRLF
     s = s .. L["Per Member credit"] .. ":" .. avg .. (conf.rounddown and (" (" .. L["Round down"] .. ")") or "") .. CRLF
 
     return s
 end
 
-ADDONSELF.genreport = function(items, n, channel, conf)
+ADDONSELF.genreport = function(items, n, channel, conf, allowDebt)
     local lines = {}
     local grp = {}
 
@@ -471,7 +484,9 @@ ADDONSELF.genreport = function(items, n, channel, conf)
     table.insert(lines, L["Revenue"] .. ": " .. revenue)
     table.insert(lines, L["Expense"] .. ": " .. expense)
     table.insert(lines, L["Net Profit"] .. ": " .. profit)
-    table.insert(lines, L["Debt"] .. ": " .. debt)
+    if allowDebt then
+        table.insert(lines, L["Debt"] .. ": " .. debt)
+    end
     table.insert(lines, L["Split into"]  .. ": " .. n)
     table.insert(lines, "==================")
     table.insert(lines, L["Mirai Ledger"]..": <<<" .. L["Per Member credit"] .. ": [" .. avg .. (conf.rounddown and (" (" .. L["Round down"] .. ")]>>>") or "]>>>"))
