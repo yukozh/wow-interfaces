@@ -185,6 +185,7 @@ function GUI:UpdateCategory()
                         },
                     },
                 });
+                hash[item["detail"]["category"]] = true
             end
         else
             if item["beneficiary"] and string.len(item["beneficiary"]) > 0 then 
